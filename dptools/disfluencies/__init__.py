@@ -4,10 +4,29 @@ Funtions to process trnascripts, and extract disfluencies from them.
 
 from pathlib import Path
 from typing import List
+import re
 
 import pandas as pd
 
 from dptools.disfluencies import constants, utils
+
+
+def preprocess_zh_text(text: str) -> str:
+    """
+    Preprocesses Chinese text by replacing punctuations with their English equivalents.
+
+    Args:
+        text (str): Chinese text
+
+    Returns:
+        str: Preprocessed text
+    """
+    for (
+        chinese_punctuation,
+        english_punctuation,
+    ) in constants.zh_punctuations_mapping.items():
+        text = text.replace(chinese_punctuation, english_punctuation)
+    return text
 
 
 def match_fillers(text: str, fillers: List[str], language: str = "en") -> List[str]:
@@ -35,6 +54,7 @@ def match_fillers(text: str, fillers: List[str], language: str = "en") -> List[s
     if language == "zh":
         # Chinese fillers are not separated by spaces
         # consider each character as a text element (word)
+        text = preprocess_zh_text(text)
         text_elements = list(text)
     else:
         text_elements = text.split()
@@ -97,11 +117,10 @@ def infer_fillers(
     sentences = [sentence.lower() for sentence in sentences]
 
     for sentence in sentences:
+        delimiter = ","
         if language == "zh":
             # Chinese punctuations use different characters
-            delimiter = "，"
-        else:
-            delimiter = ","
+            sentence = preprocess_zh_text(sentence)
         parts = sentence.split(delimiter)
         parts = [part.strip() for part in parts]
 
@@ -141,12 +160,37 @@ def match_stutters(
     Returns:
         List[str]: List of stutters found in the text
     """
-
+    delimiter = "-"
     stutters = []
     if language == "zh":
         # Chinese fillers are not separated by spaces
-        # consider each character as a text element (word)
-        text_elements = list(text)
+        pattern = re.compile(r"\s*--\s*")
+        matches = pattern.finditer(text)
+
+        for match in matches:
+            start_idx = match.start()
+            end_idx = match.end()
+            is_partial = False
+
+            if start_idx > 0:
+                match_s_idx = start_idx - 1
+            else:
+                match_s_idx = start_idx
+                is_partial = True
+            if end_idx < len(text):
+                match_e_idx = end_idx + 1
+            else:
+                match_e_idx = end_idx
+                is_partial = True
+
+            if not is_partial:
+                if text[match_s_idx] == text[match_e_idx - 1]:
+                    false_start = text[match_s_idx:match_e_idx]
+                    stutters.append(false_start)
+                else:
+                    continue
+
+        return stutters
     else:
         text_elements = text.split()
     text_elements = [element.lower() for element in text_elements]
@@ -156,9 +200,9 @@ def match_stutters(
     for text_element in text_elements:
         if text_element in non_verbal_fillers:
             continue
-        if "-" in text_element:
+        if delimiter in text_element:
             try:
-                parts = text_element.split("-")
+                parts = text_element.split(delimiter)
                 if parts[0][0] == parts[1][0]:
                     stutters.append(text_element)
             except IndexError:
@@ -199,7 +243,7 @@ def match_word_repeats(text: str, language: str) -> List[str]:
         text_elements = list(text)
 
         # remove punctuations
-        characters_to_remove = constants.zh_punctuations
+        characters_to_remove = constants.zh_punctuations_mapping.keys()
 
         text_elements = [
             element for element in text_elements if element not in characters_to_remove
@@ -249,8 +293,36 @@ def match_false_starts(text: str, language: str) -> List[str]:
 
     if language == "zh":
         # Chinese fillers are not separated by spaces
-        # consider each character as a text element (word)
-        text_elements = list(text)
+        pattern = re.compile(r"\s*--\s*")
+        matches = pattern.finditer(text)
+
+        for match in matches:
+            start_idx = match.start()
+            end_idx = match.end()
+            is_partial = False
+
+            if start_idx > 0:
+                match_s_idx = start_idx - 1
+            else:
+                match_s_idx = start_idx
+                is_partial = True
+            if end_idx < len(text):
+                match_e_idx = end_idx + 1
+            else:
+                match_e_idx = end_idx
+                is_partial = True
+
+            if not is_partial:
+                if text[match_s_idx] != text[match_e_idx - 1]:
+                    false_start = text[match_s_idx:match_e_idx]
+                    false_starts.append(false_start)
+                else:
+                    continue
+            else:
+                false_start = text[match_s_idx:match_e_idx]
+                false_starts.append(false_start)
+
+        return false_starts
     else:
         text_elements = text.split()
     text_elements = [element.lower() for element in text_elements]

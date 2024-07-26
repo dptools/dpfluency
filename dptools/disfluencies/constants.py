@@ -16,10 +16,28 @@ supported_languages: Set[str] = {
     "ko",  # Korean
 }
 
-zh_punctuations: List[str] = [" ", "，", "。", "？", "！", "；", "：", "、"]
+zh_punctuations_mapping: Dict[str, str] = {
+    " ": " ",
+    "，": ",",
+    "。": ".",
+    "？": "?",
+    "！": "!",
+    "；": ";",
+    "：": ":",
+    "、": ",",
+}
 
 non_verbal_fillers: Dict[str, List[str]] = {
-    "zh": ["哦", "嗯", "嗯嗯", "呃"],
+    "zh": [
+        "哦",
+        "嗯",
+        "嗯嗯",
+        "呃",  # Source: TranscribeMe
+        "囉",
+        "嘅",
+        "啦",
+        "呢",  # Source: Native Speaker
+    ],
     "ko": ["음", "네", "아", "어"],
     "en": [
         "Uh",

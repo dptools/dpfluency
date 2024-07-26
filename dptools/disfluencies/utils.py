@@ -7,11 +7,15 @@ import logging
 
 import pandas as pd
 
+from dptools.disfluencies import constants
+
 
 logger = logging.getLogger(__name__)
 
 
-def parse_transcript_to_df(transcript: Path, time_format: str = '%H:%M:%S.%f') -> pd.DataFrame:
+def parse_transcript_to_df(
+    transcript: Path, time_format: str = "%H:%M:%S.%f"
+) -> pd.DataFrame:
     """
     Reads transcripts of the following format:
 
@@ -94,6 +98,26 @@ def parse_transcript_to_df(transcript: Path, time_format: str = '%H:%M:%S.%f') -
     return df
 
 
+def count_words_zh(text: str) -> int:
+    """
+    Counts the number of words in a Chinese text.
+
+    Args:
+        text (str): Chinese text
+
+    Returns:
+        int: Number of words in the text
+    """
+    zh_punctuations = constants.zh_punctuations_mapping.keys()
+    for punctuation in zh_punctuations:
+        text = text.replace(punctuation, "")
+
+    text = text.replace(" ", "")
+    text = text.replace("[foreign]", "F")
+    text = text.replace("{REDACTED}", "R")
+    return len(text)
+
+
 def add_basic_features(df: pd.DataFrame, language: str) -> pd.DataFrame:
     """
     Adds basic features to the DataFrame:
@@ -107,7 +131,7 @@ def add_basic_features(df: pd.DataFrame, language: str) -> pd.DataFrame:
         pd.DataFrame: DataFrame with the added features
     """
     if language == "zh":
-        df["n_words"] = df["transcript"].apply(lambda x: len(x))
+        df["n_words"] = df["transcript"].apply(lambda x: count_words_zh(x))
     else:
         df["n_words"] = df["transcript"].apply(lambda x: len(x.split()))
     df["n_words_per_sec"] = df["n_words"] / (df["duration_ms"] / 1000)
